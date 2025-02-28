@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Marketing Generátor</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: white;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            display: inline-block;
+            width: 50%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+        input {
+            width: 90%;
+            padding: 12px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background-color: #333;
+            color: white;
+            font-size: 16px;
+        }
+        button {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 24px;
+            transition: 0.3s;
+        }
+        button:hover {
+            opacity: 0.7;
+        }
+        #logout {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+        }
+        #chatbot-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+        }
+        #saved-texts {
+            position: fixed;
+            bottom: 20px;
+            right: 70px;
+        }
+        #chatbot-window, #saved-text-window {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            width: 300px;
+            background-color: #222;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: left;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+        }
+        .chat-message {
+            background-color: #007BFF;
+            padding: 8px;
+            border-radius: 6px;
+            margin: 5px 0;
+            color: white;
+        }
+        .saved-item {
+            background-color: #333;
+            padding: 8px;
+            border-radius: 6px;
+            margin: 5px 0;
+        }
+        .result-box {
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+<h1>🚀 AI Marketing Generátor</h1>
+<div class="container">
+    <input type="text" id="prompt" placeholder="Adj meg egy témát...">
+    <button onclick="generateText()">✨ Generálás</button>
+</div>
+
+<h2>Eredmények:</h2>
+<div id="result">Itt fog megjelenni a generált szöveg...</div>
+
+<!-- Kijelentkezés gomb -->
+<button id="logout" onclick="logout()">🔑</button>
+
+<!-- Chatbot gomb -->
+<button id="chatbot-button" onclick="toggleChat()">💬</button>
+<div id="chatbot-window">
+    <h3>Chatbot</h3>
+    <div id="chat-history"></div>
+    <input type="text" id="chat-input" placeholder="Írj a chatbotnak...">
+    <button onclick="sendMessage()">Küldés</button>
+</div>
+
+<!-- Mentett szövegek gomb -->
+<button id="saved-texts" onclick="toggleSaved()">📂</button>
+<div id="saved-text-window">
+    <h3>Mentett szövegek</h3>
+    <div id="saved-list"></div>
+</div>
+
+<script>
+    async function generateText() {
+        const prompt = document.getElementById('prompt').value;
+        if (!prompt) return alert("Adj meg egy témát!");
+
+        document.getElementById('result').innerHTML = "<p>Generálás folyamatban...</p>";
+        const response = await fetch('/generate-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        const data = await response.json();
+
+        let resultHtml = "";
+        data.variations.forEach(variation => {
+            resultHtml += `
+                <div class="result-box">
+                    <h3>${variation.type}:</h3>
+                    <p>${variation.text}</p>
+                    <button onclick="saveText('${variation.text.replace(/'/g, "\\'")}')">💾 Mentés</button>
+                </div>
+            `;
+        });
+
+        document.getElementById('result').innerHTML = resultHtml;
+    }
+
+    async function saveText(text) {
+        await fetch('/save-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+        alert("Szöveg mentve!");
+    }
+
+    async function loadSavedTexts() {
+        const response = await fetch('/saved-texts');
+        const data = await response.json();
+        let savedHtml = "";
+        data.forEach(text => {
+            savedHtml += `<div class="saved-item">${text}</div>`;
+        });
+        document.getElementById("saved-list").innerHTML = savedHtml;
+    }
+
+    async function toggleChat() {
+        const chatWindow = document.getElementById('chatbot-window');
+        chatWindow.style.display = chatWindow.style.display === "block" ? "none" : "block";
+    }
+
+    async function sendMessage() {
+        const message = document.getElementById('chat-input').value;
+        document.getElementById('chat-history').innerHTML += `<div class="chat-message">Te: ${message}</div>`;
+
+        const response = await fetch('/chatbot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        document.getElementById('chat-history').innerHTML += `<div class="chat-message">AI: ${data.response}</div>`;
+    }
+
+    async function toggleSaved() {
+        const savedWindow = document.getElementById('saved-text-window');
+        savedWindow.style.display = savedWindow.style.display === "block" ? "none" : "block";
+        loadSavedTexts();
+    }
+
+    async function checkAuth() {
+        const response = await fetch('/check-auth');
+        const data = await response.json();
+        if (data.authenticated) {
+            document.body.classList.add("logged-in");
+        } else {
+            document.body.classList.remove("logged-in");
+        }
+    }
+
+    async function logout() {
+        await fetch('/logout', { method: 'POST' });
+        window.location.href = "/";
+    }
+
+    checkAuth();
+</script>
+</body>
+</html>
