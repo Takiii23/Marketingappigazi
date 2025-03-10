@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -7,7 +6,6 @@ const cors = require('cors');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const MongoStore = require('connect-mongo');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,10 +22,6 @@ app.use(
         secret: process.env.SESSION_SECRET || 'super_secret_key',
         resave: false,
         saveUninitialized: false,
-        store: MongoStore.create({
-            mongoUrl: process.env.MONGO_URI,
-            collectionName: 'sessions',
-        }),
         cookie: {
             secure: process.env.NODE_ENV === 'production',
             httpOnly: true,
@@ -46,7 +40,7 @@ if (!fs.existsSync(SAVED_TEXTS_FILE)) {
 let users = JSON.parse(fs.readFileSync(USERS_FILE));
 let savedTexts = JSON.parse(fs.readFileSync(SAVED_TEXTS_FILE));
 
-// Auth routes
+// Bejelentkezés és regisztráció
 app.post('/register', (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -117,7 +111,7 @@ app.get('/saved-texts', (req, res) => {
     res.json(savedTexts);
 });
 
-// Serve index.html as default
+// Főoldal és alkalmazás elérési útvonalak
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
