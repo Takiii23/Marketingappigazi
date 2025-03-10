@@ -28,39 +28,19 @@ app.use(session({
     }
 }));
 
-// Ha nem léteznek a fájlok, hozzuk létre
-if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify({}));
-if (!fs.existsSync(SAVED_TEXTS_FILE)) fs.writeFileSync(SAVED_TEXTS_FILE, JSON.stringify([]));
+// 📌 **Fájlok betöltése**
+if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify({}));
+}
+if (!fs.existsSync(SAVED_TEXTS_FILE)) {
+    fs.writeFileSync(SAVED_TEXTS_FILE, JSON.stringify([]));
+}
 
-let users = JSON.parse(fs.readFileSync(USERS_FILE));
-let savedTexts = JSON.parse(fs.readFileSync(SAVED_TEXTS_FILE));
+// 📌 **Adatok betöltése**
+let users = JSON.parse(fs.readFileSync(USERS_FILE).toString());
+let savedTexts = JSON.parse(fs.readFileSync(SAVED_TEXTS_FILE).toString());
 
-// 🔐 Felhasználói hitelesítés
-app.post('/register', (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ success: false, message: "Felhasználónév és jelszó szükséges!" });
-    if (users[username]) return res.status(400).json({ success: false, message: "A felhasználónév már létezik!" });
-
-    users[username] = password;
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-    res.json({ success: true, message: "Sikeres regisztráció!" });
-});
-
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ success: false, message: "Felhasználónév és jelszó szükséges!" });
-    if (users[username] === password) {
-        req.session.user = username;
-        res.json({ success: true });
-    } else {
-        res.status(401).json({ success: false, message: "Hibás bejelentkezési adatok!" });
-    }
-});
-
-app.post('/logout', (req, res) => {
-    req.session.destroy(() => res.json({ success: true }));
-});
-
+// 📌 **Bejelentkezés ellenőrzése**
 app.get('/check-auth', (req, res) => {
     if (req.session.user) {
         res.json({ authenticated: true, user: req.session.user });
@@ -69,19 +49,54 @@ app.get('/check-auth', (req, res) => {
     }
 });
 
-// 📌 AI Szöveg generátor API (Tömör és hatékony szövegek)
+// 📌 **Regisztráció**
+app.post('/register', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Felhasználónév és jelszó szükséges!" });
+    }
+    if (users[username]) {
+        return res.status(400).json({ success: false, message: "A felhasználónév már létezik!" });
+    }
+    users[username] = password;
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    res.json({ success: true, message: "Sikeres regisztráció!" });
+});
+
+// 📌 **Bejelentkezés**
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Felhasználónév és jelszó szükséges!" });
+    }
+    if (users[username] === password) {
+        req.session.user = username;
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false, message: "Hibás bejelentkezési adatok!" });
+    }
+});
+
+// 📌 **Kijelentkezés**
+app.post('/logout', (req, res) => {
+    req.session.destroy(() => {
+        res.json({ success: true });
+    });
+});
+
+// 📌 **AI Szöveg generálás - Tömörebb és új stílusokkal**
 app.post('/generate-text', async (req, res) => {
     try {
         const { prompt } = req.body;
 
         const styles = [
-            { type: "Komoly", instruction: "Adj egy tömör, de informatív magyarázatot erről a témáról.", max_tokens: 250 },
-            { type: "Fun Fact", instruction: "Mondj egy rövid, érdekes tényt erről a témáról.", max_tokens: 150 },
-            { type: "Motiváló", instruction: "Írj egy inspiráló, lényegre törő üzenetet erről a témáról.", max_tokens: 200 },
-            { type: "Fiatalos", instruction: "Írj egy laza, figyelemfelkeltő szöveget erről a témáról.", max_tokens: 200 },
-            { type: "Drámai", instruction: "Írj egy rövid, érzelmekkel teli drámai megfogalmazást erről a témáról.", max_tokens: 250 },
-            { type: "Szarkasztikus", instruction: "Adj egy rövid, szarkasztikus véleményt erről a témáról.", max_tokens: 150 },
-            { type: "Közösségi Média", instruction: "Írj egy rövid, ütős és figyelemfelkeltő szöveget közösségi média posztként.", max_tokens: 180 }
+            { type: "Komoly", instruction: "Adj egy tömör, de lényegre törő magyarázatot erről a témáról.", max_tokens: 400 },
+            { type: "Fun Fact", instruction: "Mondj egy rövid, de meglepő tényt erről a témáról.", max_tokens: 150 },
+            { type: "Motiváló", instruction: "Írj egy inspiráló, rövid üzenetet erről a témáról.", max_tokens: 300 },
+            { type: "Fiatalos", instruction: "Írj egy könnyed és laza szöveget erről a témáról.", max_tokens: 250 },
+            { type: "Drámai", instruction: "Írj egy érzelmekkel teli, de rövid drámai szöveget erről a témáról.", max_tokens: 400 },
+            { type: "Szarkasztikus", instruction: "Adj egy szarkasztikus és ironikus véleményt erről a témáról.", max_tokens: 200 },
+            { type: "Közösségi Média", instruction: "Írj egy figyelemfelkeltő, tömör szöveget közösségi médiára.", max_tokens: 280 }
         ];
 
         const responses = await Promise.all(styles.map(async (style) => {
@@ -103,7 +118,7 @@ app.post('/generate-text', async (req, res) => {
     }
 });
 
-// 📌 Chatbot API
+// 📌 **Chatbot API**
 app.post('/chatbot', async (req, res) => {
     try {
         const { message } = req.body;
@@ -121,29 +136,17 @@ app.post('/chatbot', async (req, res) => {
     }
 });
 
-// 📌 Mentett szövegek kezelése
+// 📌 **Mentett szövegek kezelése**
 app.get('/saved-texts', (req, res) => {
     res.json(savedTexts);
 });
 
 app.post('/save-text', (req, res) => {
     const { text } = req.body;
-    if (!text) return res.status(400).json({ success: false, message: "Nincs megadva szöveg!" });
-
     savedTexts.push(text);
     fs.writeFileSync(SAVED_TEXTS_FILE, JSON.stringify(savedTexts, null, 2));
-    res.json({ success: true, message: "Szöveg mentve!" });
+    res.json({ success: true });
 });
 
-// 📌 Alapértelmezett oldal
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// 📌 App oldal
-app.get('/app', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'app.html'));
-});
-
-// Szerver indítása
+// 📌 **Szerver indítása**
 app.listen(PORT, () => console.log(`✅ Server fut a ${PORT} porton: http://localhost:${PORT}`));
