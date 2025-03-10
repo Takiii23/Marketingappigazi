@@ -59,18 +59,6 @@
         #saved-texts {
             right: 70px;
         }
-        #chatbot-window, #saved-text-window {
-            display: none;
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            width: 350px;
-            background-color: #222;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: left;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
-        }
         @media screen and (max-width: 600px) {
             body {
                 padding: 10px;
@@ -96,6 +84,7 @@
 <body>
 <h1>🚀 AI Marketing Generátor</h1>
 <div class="container">
+    <label for="prompt">Adj meg egy témát:</label>
     <input type="text" id="prompt" placeholder="Adj meg egy témát...">
     <button onclick="generateText()">✨ Generálás</button>
 </div>
@@ -108,7 +97,7 @@
 
 <!-- Chatbot gomb -->
 <button id="chatbot-button" onclick="toggleChat()">💬</button>
-<div id="chatbot-window" style="display: none;">
+<div id="chatbot-window">
     <h3>Chatbot</h3>
     <div id="chat-history"></div>
     <input type="text" id="chat-input" placeholder="Írj a chatbotnak...">
@@ -128,32 +117,85 @@
         if (!prompt) return alert("Adj meg egy témát!");
 
         document.getElementById('result').innerText = "Generálás folyamatban...";
-        try {
-            const response = await fetch('/generate-text', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, short: true, format: "social_media" })
-            });
+        const response = await fetch('/generate-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+        });
+        const data = await response.json();
 
-            if (!response.ok) throw new Error("Szerverhiba a generálás során.");
+        let resultHtml = "";
+        data.variations.forEach(variation => {
+            resultHtml += `
+                <h3>${variation.type}:</h3>
+                <p>${variation.text}</p>
+                <button onclick="saveText('${variation.text.replace(/'/g, "\\'")}')">💾 Mentés</button>
+                <hr>
+            `;
+        });
 
-            const data = await response.json();
-            let resultHtml = "";
-            data.variations.forEach(variation => {
-                resultHtml += `
-                    <h3>${variation.type}:</h3>
-                    <p>${variation.text}</p>
-                    <button onclick="saveText('${variation.text.replace(/'/g, "\\'")}")">💾 Mentés</button>
-                    <hr>
-                `;
-            });
+        document.getElementById('result').innerHTML = resultHtml;
+    }
 
-            document.getElementById('result').innerHTML = resultHtml;
-        } catch (error) {
-            console.error("Hiba a generálás során:", error);
-            document.getElementById('result').innerText = "Hiba történt!";
+    async function saveText(text) {
+        await fetch('/save-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+        alert("Szöveg mentve!");
+    }
+
+    async function loadSavedTexts() {
+        const response = await fetch('/saved-texts');
+        const data = await response.json();
+        let savedHtml = "";
+        data.forEach(text => {
+            savedHtml += `<div class="saved-item">${text}</div>`;
+        });
+        document.getElementById("saved-list").innerHTML = savedHtml;
+    }
+
+    function toggleChat() {
+        const chatWindow = document.getElementById('chatbot-window');
+        chatWindow.style.display = chatWindow.style.display === "block" ? "none" : "block";
+    }
+
+    async function sendMessage() {
+        const message = document.getElementById('chat-input').value;
+        document.getElementById('chat-history').innerHTML += `<div class="chat-message">Te: ${message}</div>`;
+
+        const response = await fetch('/chatbot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        document.getElementById('chat-history').innerHTML += `<div class="chat-message">AI: ${data.response}</div>`;
+    }
+
+    async function toggleSaved() {
+        const savedWindow = document.getElementById('saved-text-window');
+        savedWindow.style.display = savedWindow.style.display === "block" ? "none" : "block";
+        loadSavedTexts();
+    }
+
+    async function checkAuth() {
+        const response = await fetch('/check-auth');
+        const data = await response.json();
+        if (data.authenticated) {
+            document.body.classList.add("logged-in");
+        } else {
+            document.body.classList.remove("logged-in");
         }
     }
+
+    async function logout() {
+        await fetch('/logout', { method: 'POST' });
+        window.location.href = "/";
+    }
+
+    checkAuth();
 </script>
 </body>
 </html>
