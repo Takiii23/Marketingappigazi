@@ -3,125 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Marketing Generátor - Bejelentkezés</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #121212;
-            color: white;
-            text-align: center;
-            padding: 20px;
-        }
-        .container {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            display: inline-block;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-        }
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 8px;
-            background-color: #333;
-            color: white;
-            font-size: 16px;
-        }
-        button {
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-size: 20px;
-            transition: 0.3s;
-            padding: 10px 15px;
-            color: white;
-            background-color: #007BFF;
-            border-radius: 8px;
-        }
-        button:hover {
-            opacity: 0.7;
-        }
-        #logout {
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            font-size: 24px;
-        }
-        @media screen and (max-width: 600px) {
-            body {
-                padding: 10px;
-            }
-            .container {
-                width: 100%;
-                padding: 15px;
-            }
-            button {
-                font-size: 18px;
-                padding: 8px 12px;
-            }
-        }
-    </style>
+    <title>Bejelentkezés</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>🚀 AI Marketing Generátor</h1>
-
 <div class="container">
     <h2>Bejelentkezés</h2>
     <input type="text" id="username" placeholder="Felhasználónév">
     <input type="password" id="password" placeholder="Jelszó">
-    <button onclick="login()">🔑 Bejelentkezés</button>
-    <button onclick="registerUser()">📝 Regisztráció</button>
+    <button onclick="login()">Belépés</button>
+    <button onclick="register()">Regisztráció</button>
 </div>
 
-<!-- Kijelentkezés gomb -->
-<button id="logout" style="display: none;" onclick="logout()">🚪</button>
-
-<script>
-    async function login() {
-        const username = document.getElementById("username").value;
-        const password = document.getElementById("password").value;
-        const response = await fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await response.json();
-        if (data.success) {
-            window.location.href = "/app";
-        } else {
-            alert("Hibás bejelentkezési adatok!");
-        }
-    }
-
-    async function registerUser() {
-        const username = document.getElementById("username").value;
-        const password = document.getElementById("password").value;
-        const response = await fetch('/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await response.json();
-        if (data.success) {
-            alert("Sikeres regisztráció! Most bejelentkezhetsz.");
-        } else {
-            alert(data.message);
-        }
-    }
-
-    async function checkAuth() {
-        const response = await fetch('/check-auth');
-        const data = await response.json();
-        if (data.authenticated) {
-            window.location.href = "/app";
-        }
-    }
-
-    checkAuth();
-</script>
+<script src="script.js"></script>
 </body>
 </html>

@@ -3,199 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Marketing Generátor</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #121212;
-            color: white;
-            text-align: center;
-            padding: 20px;
-        }
-        .container {
-            background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            display: inline-block;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-        }
-        input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: none;
-            border-radius: 8px;
-            background-color: #333;
-            color: white;
-            font-size: 16px;
-        }
-        button {
-            border: none;
-            background: none;
-            cursor: pointer;
-            font-size: 20px;
-            transition: 0.3s;
-            padding: 10px 15px;
-        }
-        button:hover {
-            opacity: 0.7;
-        }
-        #logout {
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            font-size: 24px;
-        }
-        #chatbot-button, #saved-texts {
-            position: fixed;
-            bottom: 15px;
-            font-size: 24px;
-        }
-        #chatbot-button {
-            right: 20px;
-        }
-        #saved-texts {
-            right: 70px;
-        }
-        @media screen and (max-width: 600px) {
-            body {
-                padding: 10px;
-            }
-            .container {
-                width: 100%;
-                padding: 15px;
-            }
-            button {
-                font-size: 18px;
-                padding: 8px 12px;
-            }
-            #chatbot-button, #saved-texts {
-                bottom: 10px;
-            }
-            #logout {
-                top: 10px;
-                right: 10px;
-            }
-        }
-    </style>
+    <title>AI Generátor</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>🚀 AI Marketing Generátor</h1>
 <div class="container">
-    <label for="prompt">Adj meg egy témát:</label>
+    <h1>🚀 AI Generátor</h1>
     <input type="text" id="prompt" placeholder="Adj meg egy témát...">
     <button onclick="generateText()">✨ Generálás</button>
+
+    <h2>Eredmények:</h2>
+    <div id="results"></div>
+
+    <button onclick="toggleSaved()" class="saved-btn">📂 Mentett szövegek</button>
 </div>
 
-<h2>Eredmények:</h2>
-<div id="result">Itt fog megjelenni a generált szöveg...</div>
-
-<!-- Kijelentkezés gomb -->
-<button id="logout" onclick="logout()">🔑</button>
-
 <!-- Chatbot gomb -->
-<button id="chatbot-button" onclick="toggleChat()">💬</button>
-<div id="chatbot-window">
+<div class="chatbot-icon" onclick="toggleChat()">💬</div>
+
+<!-- Chatbot popup -->
+<div id="chat-popup" class="popup hidden">
     <h3>Chatbot</h3>
     <div id="chat-history"></div>
     <input type="text" id="chat-input" placeholder="Írj a chatbotnak...">
     <button onclick="sendMessage()">Küldés</button>
 </div>
 
-<!-- Mentett szövegek gomb -->
-<button id="saved-texts" onclick="toggleSaved()">📂</button>
-<div id="saved-text-window">
+<!-- Mentett szövegek popup -->
+<div id="saved-popup" class="popup hidden">
     <h3>Mentett szövegek</h3>
     <div id="saved-list"></div>
 </div>
 
-<script>
-    async function generateText() {
-        const prompt = document.getElementById('prompt').value;
-        if (!prompt) return alert("Adj meg egy témát!");
-
-        document.getElementById('result').innerText = "Generálás folyamatban...";
-        const response = await fetch('/generate-text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
-        });
-        const data = await response.json();
-
-        let resultHtml = "";
-        data.variations.forEach(variation => {
-            resultHtml += `
-                <h3>${variation.type}:</h3>
-                <p>${variation.text}</p>
-                <button onclick="saveText('${variation.text.replace(/'/g, "\\'")}')">💾 Mentés</button>
-                <hr>
-            `;
-        });
-
-        document.getElementById('result').innerHTML = resultHtml;
-    }
-
-    async function saveText(text) {
-        await fetch('/save-text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-        });
-        alert("Szöveg mentve!");
-    }
-
-    async function loadSavedTexts() {
-        const response = await fetch('/saved-texts');
-        const data = await response.json();
-        let savedHtml = "";
-        data.forEach(text => {
-            savedHtml += `<div class="saved-item">${text}</div>`;
-        });
-        document.getElementById("saved-list").innerHTML = savedHtml;
-    }
-
-    function toggleChat() {
-        const chatWindow = document.getElementById('chatbot-window');
-        chatWindow.style.display = chatWindow.style.display === "block" ? "none" : "block";
-    }
-
-    async function sendMessage() {
-        const message = document.getElementById('chat-input').value;
-        document.getElementById('chat-history').innerHTML += `<div class="chat-message">Te: ${message}</div>`;
-
-        const response = await fetch('/chatbot', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
-        });
-        const data = await response.json();
-        document.getElementById('chat-history').innerHTML += `<div class="chat-message">AI: ${data.response}</div>`;
-    }
-
-    async function toggleSaved() {
-        const savedWindow = document.getElementById('saved-text-window');
-        savedWindow.style.display = savedWindow.style.display === "block" ? "none" : "block";
-        loadSavedTexts();
-    }
-
-    async function checkAuth() {
-        const response = await fetch('/check-auth');
-        const data = await response.json();
-        if (data.authenticated) {
-            document.body.classList.add("logged-in");
-        } else {
-            document.body.classList.remove("logged-in");
-        }
-    }
-
-    async function logout() {
-        await fetch('/logout', { method: 'POST' });
-        window.location.href = "/";
-    }
-
-    checkAuth();
-</script>
+<script src="script.js"></script>
 </body>
 </html>
