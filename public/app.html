@@ -16,6 +16,7 @@
     <div id="results"></div>
 
     <button onclick="toggleSaved()" class="saved-btn">📂 Mentett szövegek</button>
+    <button onclick="logout()" class="logout-btn">🔑 Kijelentkezés</button>
 </div>
 
 <!-- Chatbot gomb -->
@@ -23,7 +24,7 @@
 
 <!-- Chatbot popup -->
 <div id="chat-popup" class="popup hidden">
-    <h3>Chatbot</h3>
+    <h3>Chatbot <span class="close-btn" onclick="toggleChat()">❌</span></h3>
     <div id="chat-history"></div>
     <input type="text" id="chat-input" placeholder="Írj a chatbotnak...">
     <button onclick="sendMessage()">Küldés</button>
@@ -31,7 +32,7 @@
 
 <!-- Mentett szövegek popup -->
 <div id="saved-popup" class="popup hidden">
-    <h3>Mentett szövegek</h3>
+    <h3>Mentett szövegek <span class="close-btn" onclick="toggleSaved()">❌</span></h3>
     <div id="saved-list"></div>
 </div>
 
