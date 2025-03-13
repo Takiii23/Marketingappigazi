@@ -73,12 +73,12 @@ app.post("/generate-text", async (req, res) => {
         if (!prompt) return res.status(400).json({ error: "Téma szükséges!" });
 
         const styles = [
-            { type: "Komoly", instruction: "Adj egy részletes, de tömör magyarázatot erről a témáról.", max_tokens: 500 },
-            { type: "Fun Fact", instruction: "Mondj egy rövid, meglepő tényt erről a témáról.", max_tokens: 300 },
-            { type: "Motiváló", instruction: "Írj egy inspiráló üzenetet erről a témáról.", max_tokens: 400 },
-            { type: "Fiatalos", instruction: "Írj egy könnyed, fiatalos szöveget erről a témáról.", max_tokens: 400 },
-            { type: "Drámai", instruction: "Írj egy érzelmekkel teli, drámai szöveget erről a témáról.", max_tokens: 450 },
-            { type: "Szarkasztikus", instruction: "Adj egy szarkasztikus és ironikus véleményt erről a témáról.", max_tokens: 300 },
+            { type: "Komoly", instruction: "Adj egy részletes, de tömör magyarázatot erről a témáról.", max_tokens: 900 },
+            { type: "Fun Fact", instruction: "Mondj egy rövid, meglepő tényt erről a témáról.", max_tokens: 500 },
+            { type: "Motiváló", instruction: "Írj egy inspiráló üzenetet erről a témáról.", max_tokens: 600 },
+            { type: "Fiatalos", instruction: "Írj egy könnyed, fiatalos szöveget erről a témáról.", max_tokens: 800 },
+            { type: "Drámai", instruction: "Írj egy érzelmekkel teli, drámai szöveget erről a témáról.", max_tokens: 650 },
+            { type: "Szarkasztikus", instruction: "Adj egy szarkasztikus és ironikus véleményt erről a témáról.", max_tokens: 700 },
             { type: "Közösségi Média", instruction: "Írj egy rövid, ütős szöveget közösségi médiára.", max_tokens: 250 }
         ];
 
