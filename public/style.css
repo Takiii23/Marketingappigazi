@@ -1,66 +1,56 @@
-html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+/* Alap stílusok */
+body {
     background-color: #121212;
+    color: white;
+    font-family: Arial, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
+    height: 100vh;
+    margin: 0;
 }
 
+/* Konténer beállítások */
 .container {
     background-color: #1e1e1e;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
     text-align: center;
-    width: 100%;
-    max-width: 350px;
+    width: 350px;
 }
 
-h2 {
-    color: white;
-    margin-bottom: 20px;
-}
-
+/* Bemeneti mezők középre igazítása */
 input {
-    width: 100%;
+    width: 90%;
     padding: 10px;
-    margin-bottom: 15px;
-    border-radius: 5px;
+    margin: 10px 0;
     border: none;
-    background-color: #2a2a2a;
+    border-radius: 5px;
+    background-color: #2e2e2e;
     color: white;
+    text-align: center;
 }
 
+/* Gombok stílusa */
 button {
     width: 100%;
     padding: 12px;
     margin-top: 10px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-button:first-of-type {
     background-color: #2e7d32;
     color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px;
+    transition: 0.3s;
 }
 
-button:first-of-type:hover {
+button:hover {
     background-color: #1b5e20;
 }
 
-button:nth-of-type(2) {
-    background-color: #388e3c;
-    color: white;
-}
-
-button:nth-of-type(2):hover {
-    background-color: #2e7d32;
-}
-
+/* Vissza gomb */
 .back-button {
     background-color: #757575;
     color: white;
@@ -69,4 +59,39 @@ button:nth-of-type(2):hover {
 
 .back-button:hover {
     background-color: #616161;
+}
+
+/* Chatbot ikon */
+.chatbot-icon {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #388e3c;
+    color: white;
+    padding: 15px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.chatbot-icon:hover {
+    background-color: #2e7d32;
+}
+
+/* Popup ablak */
+.popup {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    background-color: #1e1e1e;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+    width: 300px;
+}
+
+/* Elrejtett elemek */
+.hidden {
+    display: none;
 }
