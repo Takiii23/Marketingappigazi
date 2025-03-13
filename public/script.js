@@ -120,3 +120,8 @@ async function register() {
         alert("❌ Hiba történt a regisztráció során!");
     }
 }
+
+// ✅ Külön függvényként kell lennie
+function goBack() {
+    window.history.back();
+}
