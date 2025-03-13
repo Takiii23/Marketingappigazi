@@ -1,16 +1,13 @@
-/* Általános stílusok */
-body {
-    font-family: Arial, sans-serif;
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
     background-color: #121212;
-    color: white;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    margin: 0;
 }
 
-/* Központi tartalom */
 .container {
     background-color: #1e1e1e;
     padding: 20px;
@@ -18,124 +15,58 @@ body {
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
     text-align: center;
     width: 100%;
-    max-width: 400px;
+    max-width: 350px;
 }
 
-/* Beviteli mezők */
+h2 {
+    color: white;
+    margin-bottom: 20px;
+}
+
 input {
     width: 100%;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 5px;
     border: none;
-    background-color: #2e2e2e;
+    background-color: #2a2a2a;
     color: white;
 }
 
-input::placeholder {
-    color: #cccccc;
-}
-
-/* Gombok */
 button {
     width: 100%;
     padding: 12px;
-    margin: 8px 0;
-    background-color: #2e7d32;
-    color: white;
+    margin-top: 10px;
     border: none;
-    border-radius: 6px;
+    border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
-    transition: 0.3s;
 }
 
-button:hover {
-    background-color: #1b5e20;
-}
-
-/* Különleges gombok */
-.back-btn {
-    background-color: #757575;
-}
-
-.back-btn:hover {
-    background-color: #616161;
-}
-
-.logout-btn {
-    background-color: #d32f2f;
-}
-
-.logout-btn:hover {
-    background-color: #b71c1c;
-}
-
-/* Chatbot ikon */
-.chatbot-icon {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
+button:first-of-type {
     background-color: #2e7d32;
     color: white;
-    font-size: 24px;
-    padding: 12px;
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.4);
 }
 
-.chatbot-icon:hover {
+button:first-of-type:hover {
     background-color: #1b5e20;
 }
 
-/* Popup ablakok */
-.popup {
-    position: fixed;
-    bottom: 100px;
-    right: 20px;
-    background-color: #1e1e1e;
-    padding: 15px;
-    border-radius: 12px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
-    width: 300px;
+button:nth-of-type(2) {
+    background-color: #388e3c;
+    color: white;
 }
 
-.hidden {
-    display: none;
+button:nth-of-type(2):hover {
+    background-color: #2e7d32;
 }
 
-/* Generálási eredmények */
-#results {
-    margin-top: 10px;
-    padding: 10px;
-    background-color: #2e2e2e;
-    border-radius: 6px;
+.back-button {
+    background-color: #757575;
+    color: white;
+    margin-top: 15px;
 }
 
-/* Üzenetek */
-p {
-    font-size: 14px;
-    margin: 5px 0;
-}
-
-/* Mentett szövegek */
-#saved-list {
-    max-height: 200px;
-    overflow-y: auto;
-}
-
-/* Hibaüzenetek */
-.error {
-    color: #ff5252;
-    font-size: 14px;
-}
-
-/* Chatbox */
-#chat-popup, #saved-popup {
-    max-width: 300px;
-    background-color: #1e1e1e;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+.back-button:hover {
+    background-color: #616161;
 }
