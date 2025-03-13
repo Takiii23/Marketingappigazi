@@ -1,54 +1,31 @@
-async function generateText() {
-    const prompt = document.getElementById("prompt").value;
-    if (!prompt) return alert("Adj meg egy témát!");
+async function login() {
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
 
-    document.getElementById("results").innerHTML = "<p>📶 Generálás folyamatban...</p>";
-
-    const response = await fetch("/generate-text", {
+    const response = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ username, password })
     });
 
     const data = await response.json();
-    document.getElementById("results").innerHTML = data.results
-        .map(res => `<b>${res.type}</b><br>${res.text}<br><button onclick="saveText('${res.text}')">💾 Mentés</button><br><br>`)
-        .join("");
+    document.getElementById("message").innerText = data.message;
+
+    if (data.success) {
+        window.location.href = "app.html";
+    }
 }
 
-async function sendMessage() {
-    const message = document.getElementById("chat-input").value;
-    if (!message) return;
+async function register() {
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
 
-    const response = await fetch("/chatbot", {
+    const response = await fetch("/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ username, password })
     });
 
     const data = await response.json();
-    document.getElementById("chat-history").innerHTML += `<p><b>Bot:</b> ${data.text}</p>`;
-    document.getElementById("chat-input").value = "";
-}
-
-async function saveText(text) {
-    await fetch("/save-text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
-    });
-    alert("✅ Szöveg mentve!");
-}
-
-async function toggleSaved() {
-    const savedPopup = document.getElementById("saved-popup");
-    savedPopup.classList.toggle("hidden");
-
-    const response = await fetch("/saved-texts");
-    const texts = await response.json();
-    document.getElementById("saved-list").innerHTML = texts.map(txt => `<p>${txt}</p>`).join("");
-}
-
-function toggleChat() {
-    document.getElementById("chat-popup").classList.toggle("hidden");
+    document.getElementById("message").innerText = data.message;
 }
