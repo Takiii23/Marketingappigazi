@@ -1,69 +1,91 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs");
+const { Pool } = require("pg");
 const axios = require("axios");
-const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const USERS_FILE = path.join(__dirname, "users.json");
-const SAVED_TEXTS_FILE = path.join(__dirname, "saved_texts.json");
+
+// 🔹 **PostgreSQL adatbázis kapcsolat**
+const pool = new Pool({
+    user: "marketing_app_6c9g_user",
+    host: "dpg-cv9ll7lds78s73bqdqcg-a.oregon-postgres.render.com",
+    database: "marketing_app_6c9g",
+    password: "pW4opGynriIX9y8HGHr8cP4GHg3OIxIy",
+    port: 5432,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// **📌 Felhasználók betöltése**
-let users = [];
-try {
-    if (fs.existsSync(USERS_FILE)) {
-        const rawData = fs.readFileSync(USERS_FILE, "utf8");
-        users = JSON.parse(rawData);
+// 📌 **Táblák létrehozása, ha nem léteznek**
+const createTables = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            );
 
-        // Ha nem tömb, alakítsuk át
-        if (!Array.isArray(users)) {
-            users = Object.entries(users).map(([username, password]) => ({ username, password }));
-            fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-        }
-    } else {
-        fs.writeFileSync(USERS_FILE, JSON.stringify([])); // Ha nincs fájl, létrehozzuk
+            CREATE TABLE IF NOT EXISTS saved_texts (
+                id SERIAL PRIMARY KEY,
+                text TEXT NOT NULL
+            );
+        `);
+        console.log("✅ Adatbázis inicializálva!");
+    } catch (error) {
+        console.error("❌ Hiba az adatbázis inicializálásakor:", error);
     }
-} catch (error) {
-    console.error("❌ Hiba a users.json betöltésekor:", error);
-    users = [];
-}
+};
 
-// **📌 Regisztráció**
-app.post("/register", (req, res) => {
+// 📌 **Szerver indítás táblakészítéssel**
+(async () => {
+    await createTables();
+    app.listen(PORT, () => console.log(`✅ Server fut a ${PORT} porton!`));
+})();
+
+// **📌 Regisztráció PostgreSQL-ben**
+app.post("/register", async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: "Felhasználónév és jelszó szükséges!" });
     }
 
-    if (users.some(user => user.username === username)) {
-        return res.status(400).json({ error: "A felhasználónév már létezik!" });
+    try {
+        await pool.query("INSERT INTO users (username, password) VALUES ($1, $2)", [username, password]);
+        res.json({ success: true, message: "✅ Sikeres regisztráció!" });
+    } catch (error) {
+        console.error("Regisztrációs hiba:", error);
+        res.status(500).json({ error: "Hiba történt a regisztráció során." });
     }
-
-    users.push({ username, password });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-    res.json({ success: true, message: "Sikeres regisztráció!" });
 });
 
-// **📌 Bejelentkezés**
-app.post("/login", (req, res) => {
+// **📌 Bejelentkezés PostgreSQL-ből**
+app.post("/login", async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: "Felhasználónév és jelszó szükséges!" });
     }
 
-    const user = users.find(user => user.username === username && user.password === password);
-    if (!user) {
-        return res.status(401).json({ error: "Hibás bejelentkezési adatok!" });
-    }
+    try {
+        const result = await pool.query("SELECT * FROM users WHERE username = $1 AND password = $2", [username, password]);
 
-    res.json({ success: true, message: "Sikeres bejelentkezés!" });
+        if (result.rows.length > 0) {
+            res.json({ success: true, message: "✅ Sikeres bejelentkezés!" });
+        } else {
+            res.json({ success: false, message: "❌ Hibás felhasználónév vagy jelszó!" });
+        }
+    } catch (error) {
+        console.error("Bejelentkezési hiba:", error);
+        res.status(500).json({ error: "Hiba történt a bejelentkezés során." });
+    }
 });
 
 // **📌 AI Szöveg generátor API**
@@ -73,7 +95,7 @@ app.post("/generate-text", async (req, res) => {
         if (!prompt) return res.status(400).json({ error: "Téma szükséges!" });
 
         const styles = [
-            { type: "Komoly", instruction: "Adj egy részletes, de tömör magyarázatot erről a témáról.", max_tokens: 900 },
+            { type: "Komoly", instruction: "Adj egy részletes magyarázatot erről a témáról.", max_tokens: 900 },
             { type: "Fun Fact", instruction: "Mondj egy rövid, meglepő tényt erről a témáról.", max_tokens: 500 },
             { type: "Motiváló", instruction: "Írj egy inspiráló üzenetet erről a témáról.", max_tokens: 600 },
             { type: "Fiatalos", instruction: "Írj egy könnyed, fiatalos szöveget erről a témáról.", max_tokens: 800 },
@@ -91,7 +113,7 @@ app.post("/generate-text", async (req, res) => {
                 headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }
             });
 
-            return { type: style.type, text: response.data.choices[0].message.content };
+            return { type: style.type, text: response.data.choices?.[0]?.message?.content || "Hiba történt az AI válaszban." };
         }));
 
         res.json({ results });
@@ -102,48 +124,26 @@ app.post("/generate-text", async (req, res) => {
 });
 
 // **📌 Mentett szövegek kezelése**
-app.post("/save-text", (req, res) => {
+app.post("/save-text", async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Szöveg szükséges!" });
 
-    let savedTexts = [];
-    if (fs.existsSync(SAVED_TEXTS_FILE)) {
-        savedTexts = JSON.parse(fs.readFileSync(SAVED_TEXTS_FILE, "utf8"));
-    }
-
-    savedTexts.push(text);
-    fs.writeFileSync(SAVED_TEXTS_FILE, JSON.stringify(savedTexts, null, 2));
-
-    res.json({ success: true });
-});
-
-app.get("/saved-texts", (req, res) => {
-    if (!fs.existsSync(SAVED_TEXTS_FILE)) {
-        return res.json([]);
-    }
-
-    const savedTexts = JSON.parse(fs.readFileSync(SAVED_TEXTS_FILE, "utf8"));
-    res.json(savedTexts);
-});
-
-// **📌 Chatbot API**
-app.post("/chatbot", async (req, res) => {
     try {
-        const { message } = req.body;
-        if (!message) return res.status(400).json({ error: "Üzenet szükséges!" });
-
-        const response = await axios.post("https://api.openai.com/v1/chat/completions", {
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: message }],
-            max_tokens: 700
-        }, {
-            headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }
-        });
-
-        res.json({ text: response.data.choices[0].message.content });
+        await pool.query("INSERT INTO saved_texts (text) VALUES ($1)", [text]);
+        res.json({ success: true, message: "✅ Szöveg mentve!" });
     } catch (error) {
-        console.error("Chatbot hiba:", error);
-        res.status(500).json({ error: "Chatbot hiba történt." });
+        console.error("Mentési hiba:", error);
+        res.status(500).json({ error: "Hiba történt a mentés során!" });
+    }
+});
+
+app.get("/saved-texts", async (req, res) => {
+    try {
+        const result = await pool.query("SELECT text FROM saved_texts");
+        res.json(result.rows.map(row => row.text));
+    } catch (error) {
+        console.error("Mentett szövegek hiba:", error);
+        res.status(500).json({ error: "Nem sikerült betölteni a mentett szövegeket." });
     }
 });
 
@@ -155,6 +155,3 @@ app.get("/", (req, res) => {
 app.get("/app", (req, res) => {
     res.sendFile(__dirname + "/public/app.html");
 });
-
-// **📌 Szerver indítása**
-app.listen(PORT, () => console.log(`✅ Server fut a ${PORT} porton!`));
