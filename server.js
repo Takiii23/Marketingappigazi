@@ -1,159 +1,239 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const { Configuration, OpenAIApi } = require("openai");
 const session = require("express-session");
-const bcrypt = require("bcrypt");
-const { Pool } = require("pg");
+const sqlite3 = require("sqlite3").verbose();
+const SQLiteStore = require("connect-sqlite3")(session);
+const path = require("path");
+const { OpenAI } = require("openai");
+const bodyParser = require("body-parser");
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(express.static("public"));
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-
+// SESSION SETUP
 app.use(
     session({
-        secret: "titkoskulcs",
+        store: new SQLiteStore({ db: "sessions.sqlite" }),
+        secret: "secret-key",
         resave: false,
-        saveUninitialized: false,
+        saveUninitialized: true,
     })
 );
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false,
-    },
-});
+// STATIC FILES & PARSER
+app.use(express.static("public"));
+app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
-
+// VIEW ENGINE
 app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 
-// Regisztrációs oldal
-app.get("/register", (req, res) => {
-    res.render("register");
-});
-
-// Regisztrációs kérelem
-app.post("/register", async (req, res) => {
-    const { username, password, marketingField, platform } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    try {
-        await pool.query(
-            "INSERT INTO users (username, password, marketing_field, platform) VALUES ($1, $2, $3, $4)",
-            [username, hashedPassword, marketingField, platform]
-        );
-        res.redirect("/login");
-    } catch (err) {
-        console.error("Hiba a regisztráció során:", err);
-        res.send("Hiba történt.");
+// DATABASE INIT
+const db = new sqlite3.Database("users.db", (err) => {
+    if (err) {
+        console.error("DB error:", err.message);
+    } else {
+        console.log("DB connected.");
     }
 });
 
-// Bejelentkezési oldal
+// CREATE TABLES IF NOT EXISTS
+db.serialize(() => {
+    db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE,
+      password TEXT,
+      field TEXT,
+      platform TEXT
+    )
+  `);
+    db.run(`
+    CREATE TABLE IF NOT EXISTS saved_texts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      content TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+});
+
+// OPENAI INIT
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
+
+// AUTH ROUTES
 app.get("/login", (req, res) => {
     res.render("login");
 });
 
-// Bejelentkezési kérelem
-app.post("/login", async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
-        if (result.rows.length > 0) {
-            const user = result.rows[0];
-            const match = await bcrypt.compare(password, user.password);
-            if (match) {
-                req.session.user = user;
-                return res.redirect("/generate");
+app.get("/register", (req, res) => {
+    res.render("register");
+});
+
+app.post("/register", (req, res) => {
+    const { email, password } = req.body;
+    db.run(
+        "INSERT INTO users (email, password) VALUES (?, ?)",
+        [email, password],
+        function (err) {
+            if (err) {
+                console.error(err.message);
+                return res.status(400).send("Registration failed.");
             }
+            req.session.userId = this.lastID;
+            res.redirect("/setup");
         }
-        res.send("Hibás felhasználónév vagy jelszó.");
-    } catch (err) {
-        console.error("Hiba a bejelentkezés során:", err);
-        res.send("Hiba történt.");
-    }
+    );
 });
 
-// Szöveg generáló oldal
-app.get("/generate", (req, res) => {
-    if (!req.session.user) {
-        return res.redirect("/login");
-    }
-    res.render("generate", {
-        username: req.session.user.username,
-        marketingField: req.session.user.marketing_field,
-        platform: req.session.user.platform,
-    });
+app.get("/setup", (req, res) => {
+    if (!req.session.userId) return res.redirect("/login");
+    res.render("setup");
 });
 
-// Generálás kérelem
-app.post("/generate", async (req, res) => {
-    if (!req.session.user) {
-        return res.status(401).send("Nincs bejelentkezve.");
-    }
-
-    const { prompt, style } = req.body;
-    const user = req.session.user;
-
-    let fullPrompt = `Kérlek, írj egy rövid, max 200 karakteres ${style} stílusú marketing szöveget az alábbiak alapján:\n\n`;
-    fullPrompt += `Téma: ${user.marketing_field}\n`;
-    fullPrompt += `Platform: ${user.platform}\n`;
-    fullPrompt += `Felhasználó által megadott szöveg: ${prompt}\n\n`;
-
-    switch (style) {
-        case "komoly":
-            fullPrompt += "A hangnem legyen professzionális és informatív.";
-            break;
-        case "fun_fact":
-            fullPrompt += "Adj meg egy érdekes tényt a témáról és írj hozzá egy szórakoztató marketing szöveget.";
-            break;
-        case "motiváló":
-            fullPrompt += "Írj egy inspiráló és bátorító hangvételű szöveget.";
-            break;
-        case "fiatalos":
-            fullPrompt += "Használj fiatalos, trendi nyelvezetet.";
-            break;
-        case "drámai":
-            fullPrompt += "Legyen hatásos, figyelemfelkeltő, drámai.";
-            break;
-        case "szarkasztikus":
-            fullPrompt += "Írj egy enyhén szarkasztikus, de mégis marketing célú szöveget.";
-            break;
-        case "social":
-            fullPrompt += "Formázd úgy a választ, hogy egy Instagram posztnak megfeleljen (hashtagekkel).";
-            break;
-        default:
-            fullPrompt += "Legyen figyelemfelkeltő, tömör és kreatív.";
-    }
-
-    try {
-        const completion = await openai.createChatCompletion({
-            model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: fullPrompt }],
-        });
-
-        const generatedText = completion.data.choices[0].message.content.trim();
-        new Date().toISOString();
-        res.json({ text: generatedText });
-    } catch (error) {
-        console.error("Hiba a szöveg generálásakor:", error?.response?.data || error.message);
-        res.status(500).send("Hiba történt a generálás során.");
-    }
+app.post("/setup", (req, res) => {
+    const { field, platform } = req.body;
+    db.run(
+        "UPDATE users SET field = ?, platform = ? WHERE id = ?",
+        [field, platform, req.session.userId],
+        function (err) {
+            if (err) {
+                console.error(err.message);
+                return res.status(500).send("Setup failed.");
+            }
+            res.redirect("/");
+        }
+    );
 });
 
-// Kijelentkezés
+app.post("/login", (req, res) => {
+    const { email, password } = req.body;
+    db.get(
+        "SELECT * FROM users WHERE email = ? AND password = ?",
+        [email, password],
+        (err, user) => {
+            if (err || !user) {
+                return res.status(401).send("Login failed.");
+            }
+            req.session.userId = user.id;
+            res.redirect("/");
+        }
+    );
+});
+
 app.get("/logout", (req, res) => {
     req.session.destroy();
     res.redirect("/login");
 });
 
+// HOME
+app.get("/", (req, res) => {
+    if (!req.session.userId) return res.redirect("/login");
+    res.render("index");
+});
+
+// TEXT GENERATION
+app.post("/generate", async (req, res) => {
+    const { style, inputText } = req.body;
+    if (!req.session.userId) return res.status(401).send("Not logged in");
+
+    let prompt = "";
+
+    switch (style) {
+        case "komoly":
+            prompt = `Írj egy komoly marketing szöveget erről: ${inputText}`;
+            break;
+        case "funfact":
+            prompt = `Írj egy érdekes fun fact stílusú marketing szöveget erről: ${inputText}`;
+            break;
+        case "motiváló":
+            prompt = `Írj egy motiváló marketing szöveget erről: ${inputText}`;
+            break;
+        case "fiatalos":
+            prompt = `Írj egy fiatalos, trendi stílusú marketing szöveget erről: ${inputText}`;
+            break;
+        case "drámai":
+            prompt = `Írj egy drámai hangvételű marketing szöveget erről: ${inputText}`;
+            break;
+        case "szarkasztikus":
+            prompt = `Írj egy szarkasztikus marketing szöveget erről: ${inputText}`;
+            break;
+        case "social":
+            prompt = `Írj egy közösségi médiára való marketing szöveget erről: ${inputText}`;
+            break;
+        default:
+            prompt = `Írj egy marketing szöveget erről: ${inputText}`;
+            break;
+    }
+
+    try {
+        const completion = await openai.chat.completions.create({
+            messages: [{ role: "user", content: prompt }],
+            model: "gpt-3.5-turbo",
+        });
+
+        const generatedText = completion.choices[0].message.content;
+        res.send({ generatedText });
+    } catch (error) {
+        console.error("OpenAI error:", error);
+        res.status(500).send("Error generating text.");
+    }
+});
+
+// CHATBOT ENDPOINT
+app.post("/chat", async (req, res) => {
+    const { message } = req.body;
+    try {
+        const completion = await openai.chat.completions.create({
+            messages: [{ role: "user", content: message }],
+            model: "gpt-3.5-turbo",
+        });
+        res.json({ reply: completion.choices[0].message.content });
+    } catch (error) {
+        console.error("Chatbot error:", error);
+        res.status(500).send("Chatbot error.");
+    }
+});
+
+// SAVE TEXT
+app.post("/save", (req, res) => {
+    const { content } = req.body;
+    if (!req.session.userId) return res.status(401).send("Unauthorized");
+
+    db.run(
+        "INSERT INTO saved_texts (user_id, content) VALUES (?, ?)",
+        [req.session.userId, content],
+        (err) => {
+            if (err) {
+                console.error("Save error:", err.message);
+                return res.status(500).send("Save failed.");
+            }
+            res.send("Saved successfully.");
+        }
+    );
+});
+
+// LOAD SAVED TEXTS
+app.get("/saved", (req, res) => {
+    if (!req.session.userId) return res.status(401).send("Unauthorized");
+
+    db.all(
+        "SELECT * FROM saved_texts WHERE user_id = ? ORDER BY created_at DESC",
+        [req.session.userId],
+        (err, rows) => {
+            if (err) {
+                console.error("Load error:", err.message);
+                return res.status(500).send("Load failed.");
+            }
+            res.json(rows);
+        }
+    );
+});
+
+// START SERVER
 app.listen(port, () => {
-    console.log(`Szerver fut a következő porton: ${port}`);
+    console.log(`Server is running on port ${port}`);
 });
