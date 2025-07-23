@@ -1,238 +1,159 @@
-require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
+const bodyParser = require("body-parser");
+const { Configuration, OpenAIApi } = require("openai");
 const session = require("express-session");
+const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
-const axios = require("axios");
+require("dotenv").config();
 
 const app = express();
-const PORT = 3000;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const port = process.env.PORT || 3000;
 
-// 🔧 Lokális adatbázis (egyszerűsített teszteléshez)
+app.use(express.static("public"));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+
+app.use(
+    session({
+        secret: "titkoskulcs",
+        resave: false,
+        saveUninitialized: false,
+    })
+);
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false
-    }
+        rejectUnauthorized: false,
+    },
 });
 
+const configuration = new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static("public"));
-app.use(session({
-    secret: "my_secret_key",
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false }
-}));
+app.set("view engine", "ejs");
 
-const createTables = async () => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS saved_texts (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                text TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS user_preferences (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-                marketing_field TEXT,
-                platform TEXT[],
-                created_at TIMESTAMP DEFAULT NOW()
-            );
-        `);
-        console.log("✅ Adatbázis inicializálva!");
-    } catch (error) {
-        console.error("❌ Hiba az adatbázis inicializálásakor:", error);
-    }
-};
+// Regisztrációs oldal
+app.get("/register", (req, res) => {
+    res.render("register");
+});
 
-(async () => {
-    await createTables();
-    app.listen(PORT, () => console.log(`✅ Server fut a ${PORT} porton!`));
-})();
-
+// Regisztrációs kérelem
 app.post("/register", async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, marketingField, platform } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
     try {
-        const userResult = await pool.query(
-            "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id",
-            [username, password]
+        await pool.query(
+            "INSERT INTO users (username, password, marketing_field, platform) VALUES ($1, $2, $3, $4)",
+            [username, hashedPassword, marketingField, platform]
         );
-        req.session.user_id = userResult.rows[0].id;
-        res.json({ success: true });
+        res.redirect("/login");
     } catch (err) {
-        console.error("Regisztrációs hiba:", err);
-        res.status(500).json({ success: false });
+        console.error("Hiba a regisztráció során:", err);
+        res.send("Hiba történt.");
     }
 });
 
+// Bejelentkezési oldal
+app.get("/login", (req, res) => {
+    res.render("login");
+});
+
+// Bejelentkezési kérelem
 app.post("/login", async (req, res) => {
     const { username, password } = req.body;
     try {
-        const user = await pool.query(
-            "SELECT id FROM users WHERE username = $1 AND password = $2",
-            [username, password]
-        );
-        if (user.rows.length > 0) {
-            req.session.user_id = user.rows[0].id;
-            res.json({ success: true });
-        } else {
-            res.json({ success: false });
-        }
-    } catch (err) {
-        console.error("Bejelentkezési hiba:", err);
-        res.status(500).json({ success: false });
-    }
-});
-
-app.post("/preferences", async (req, res) => {
-    const user_id = req.session.user_id;
-    const { marketing_field } = req.body;
-    if (!user_id) return res.status(401).json({ error: "Unauthorized" });
-
-    try {
-        await pool.query(
-            `INSERT INTO user_preferences (user_id, marketing_field, platform)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (user_id) DO UPDATE SET marketing_field = EXCLUDED.marketing_field`,
-            [user_id, marketing_field, []]
-        );
-        res.json({ success: true });
-    } catch (err) {
-        console.error("Preferencia mentés hiba:", err);
-        res.status(500).json({ success: false });
-    }
-});
-
-app.post("/platform", async (req, res) => {
-    const user_id = req.session.user_id;
-    const { platform } = req.body;
-    if (!user_id) return res.status(401).json({ error: "Unauthorized" });
-
-    try {
-        await pool.query(
-            `UPDATE user_preferences SET platform = $1 WHERE user_id = $2`,
-            [platform, user_id]
-        );
-        res.json({ success: true });
-    } catch (err) {
-        console.error("Platform mentés hiba:", err);
-        res.status(500).json({ success: false });
-    }
-});
-
-app.post("/generate-text", async (req, res) => {
-    const user_id = req.session.user_id;
-    const { prompt, customStyle, postDate, platform } = req.body;
-    if (!user_id) return res.status(401).json({ error: "Unauthorized" });
-
-    try {
-        const prefs = await pool.query("SELECT marketing_field FROM user_preferences WHERE user_id = $1", [user_id]);
-        if (!prefs.rows.length) return res.status(400).json({ error: "Nincsenek beállított preferenciák." });
-
-        const { marketing_field } = prefs.rows[0];
-        const styles = ["Komoly", "Fun Fact", "Motiváló", "Fiatalos", "Drámai", "Szarkasztikus", "Közösségi Média"];
-
-        const results = await Promise.all(styles.map(async (style) => {
-            const platformList = platform && platform.length > 0 ? platform.join(", ") : "Instagram, Facebook";
-
-            let tonePrompt = "";
-            switch (style) {
-                case "Komoly":
-                    tonePrompt = "Írj egy szakmai és informatív stílusú posztot";
-                    break;
-                case "Fun Fact":
-                    tonePrompt = "Írj egy érdekes tényt vagy meglepő információt";
-                    break;
-                case "Motiváló":
-                    tonePrompt = "Írj egy inspiráló, pozitív üzenetet tartalmazó posztot";
-                    break;
-                case "Fiatalos":
-                    tonePrompt = "Írj egy modern, laza, fiatalos hangvételű posztot szlenggel";
-                    break;
-                case "Drámai":
-                    tonePrompt = "Írj egy érzelmeket kiváltó, drámai stílusú posztot";
-                    break;
-                case "Szarkasztikus":
-                    tonePrompt = "Írj egy csípős, szarkasztikus stílusú posztot humorral";
-                    break;
-                case "Közösségi Média":
-                    tonePrompt = "Írj egy trendi, figyelemfelkeltő social media posztot emojikkal és rövid bekezdésekkel";
-                    break;
-                default:
-                    tonePrompt = "Írj egy kreatív posztot";
+        const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+            const match = await bcrypt.compare(password, user.password);
+            if (match) {
+                req.session.user = user;
+                return res.redirect("/generate");
             }
-
-            const fullPrompt = `${tonePrompt} a(z) ${marketing_field} témában, ${platformList} platformra. Téma: ${prompt}${customStyle ? ` (${customStyle})` : ""}`;
-
-            const response = await axios.post("https://api.openai.com/v1/chat/completions", {
-                model: "gpt-3.5-turbo",
-                messages: [{ role: "system", content: fullPrompt }],
-                max_tokens: 800
-            }, {
-                headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }
-            });
-
-            return {
-                type: style,
-                text: response.data.choices[0].message.content
-            };
-        }));
-
-        res.json({ success: true, results });
+        }
+        res.send("Hibás felhasználónév vagy jelszó.");
     } catch (err) {
-        console.error("Generálási hiba:", err);
-        res.status(500).json({ success: false });
+        console.error("Hiba a bejelentkezés során:", err);
+        res.send("Hiba történt.");
     }
 });
 
-app.post("/chatbot", async (req, res) => {
-    const user_id = req.session.user_id;
-    const { message } = req.body;
-    if (!user_id) return res.status(401).json({ success: false });
+// Szöveg generáló oldal
+app.get("/generate", (req, res) => {
+    if (!req.session.user) {
+        return res.redirect("/login");
+    }
+    res.render("generate", {
+        username: req.session.user.username,
+        marketingField: req.session.user.marketing_field,
+        platform: req.session.user.platform,
+    });
+});
+
+// Generálás kérelem
+app.post("/generate", async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).send("Nincs bejelentkezve.");
+    }
+
+    const { prompt, style } = req.body;
+    const user = req.session.user;
+
+    let fullPrompt = `Kérlek, írj egy rövid, max 200 karakteres ${style} stílusú marketing szöveget az alábbiak alapján:\n\n`;
+    fullPrompt += `Téma: ${user.marketing_field}\n`;
+    fullPrompt += `Platform: ${user.platform}\n`;
+    fullPrompt += `Felhasználó által megadott szöveg: ${prompt}\n\n`;
+
+    switch (style) {
+        case "komoly":
+            fullPrompt += "A hangnem legyen professzionális és informatív.";
+            break;
+        case "fun_fact":
+            fullPrompt += "Adj meg egy érdekes tényt a témáról és írj hozzá egy szórakoztató marketing szöveget.";
+            break;
+        case "motiváló":
+            fullPrompt += "Írj egy inspiráló és bátorító hangvételű szöveget.";
+            break;
+        case "fiatalos":
+            fullPrompt += "Használj fiatalos, trendi nyelvezetet.";
+            break;
+        case "drámai":
+            fullPrompt += "Legyen hatásos, figyelemfelkeltő, drámai.";
+            break;
+        case "szarkasztikus":
+            fullPrompt += "Írj egy enyhén szarkasztikus, de mégis marketing célú szöveget.";
+            break;
+        case "social":
+            fullPrompt += "Formázd úgy a választ, hogy egy Instagram posztnak megfeleljen (hashtagekkel).";
+            break;
+        default:
+            fullPrompt += "Legyen figyelemfelkeltő, tömör és kreatív.";
+    }
 
     try {
-        const response = await axios.post("https://api.openai.com/v1/chat/completions", {
+        const completion = await openai.createChatCompletion({
             model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: message }],
-            max_tokens: 300
-        }, {
-            headers: { Authorization: `Bearer ${OPENAI_API_KEY}` }
+            messages: [{ role: "user", content: fullPrompt }],
         });
 
-        const reply = response.data.choices[0].message.content;
-        res.json({ success: true, reply });
-    } catch (err) {
-        console.error("Chatbot hiba:", err);
-        res.status(500).json({ success: false });
+        const generatedText = completion.data.choices[0].message.content.trim();
+        new Date().toISOString();
+        res.json({ text: generatedText });
+    } catch (error) {
+        console.error("Hiba a szöveg generálásakor:", error?.response?.data || error.message);
+        res.status(500).send("Hiba történt a generálás során.");
     }
 });
 
-app.post("/save-text", async (req, res) => {
-    const user_id = req.session.user_id;
-    const { text } = req.body;
-    if (!user_id) return res.status(401).json({ success: false });
-
-    try {
-        await pool.query("INSERT INTO saved_texts (user_id, text) VALUES ($1, $2)", [user_id, text]);
-        res.json({ success: true });
-    } catch (err) {
-        console.error("Szöveg mentési hiba:", err);
-        res.status(500).json({ success: false });
-    }
-});
-
+// Kijelentkezés
 app.get("/logout", (req, res) => {
-    req.session.destroy(() => {
-        res.json({ success: true });
-    });
+    req.session.destroy();
+    res.redirect("/login");
+});
+
+app.listen(port, () => {
+    console.log(`Szerver fut a következő porton: ${port}`);
 });
