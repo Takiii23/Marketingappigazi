@@ -2,39 +2,45 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Generátor</title>
+    <title>Marketing AI App</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
-    <h1>🚀 AI Generátor</h1>
-    <input type="text" id="prompt" placeholder="Adj meg egy témát...">
-    <button onclick="generateText()">✨ Generálás</button>
+    <h2>Adj meg egy témát, amiről posztot szeretnél:</h2>
+    <input type="text" id="prompt" placeholder="Pl. új termék bevezetés" />
 
-    <h2>Eredmények:</h2>
-    <div id="results"></div>
+    <h3>Egyedi stílus (opcionális):</h3>
+    <input type="text" id="custom-style" placeholder="Pl. mint egy Starbucks reklám" />
 
-    <button onclick="toggleSaved()" class="saved-btn">📂 Mentett szövegek</button>
-    <button onclick="logout()" class="logout-btn">🔑 Kijelentkezés</button>
-    <button class="back-btn" onclick="goBack()">🔙 Vissza</button>
-</div>
+    <details>
+        <summary>🕓 Időzítés (opcionális)</summary>
+        <input type="date" id="post-date" />
+    </details>
 
-<!-- Chatbot gomb -->
-<div class="chatbot-icon" onclick="toggleChat()">💬</div>
+    <h3>Platform kiválasztása:</h3>
+    <select id="platform" multiple>
+        <option value="Facebook">Facebook</option>
+        <option value="Instagram">Instagram</option>
+        <option value="TikTok">TikTok</option>
+        <option value="YouTube">YouTube</option>
+    </select>
 
-<!-- Chatbot popup -->
-<div id="chat-popup" class="popup hidden">
-    <h3>Chatbot</h3>
-    <div id="chat-history"></div>
-    <input type="text" id="chat-input" placeholder="Írj a chatbotnak...">
-    <button onclick="sendMessage()">Küldés</button>
-</div>
+    <button onclick="generateText()">Szöveg generálása</button>
+    <button onclick="saveText()">Mentés kézzel</button>
+    <button onclick="logout()">Kijelentkezés</button>
 
-<!-- Mentett szövegek popup -->
-<div id="saved-popup" class="popup hidden">
-    <h3>Mentett szövegek</h3>
-    <div id="saved-list"></div>
+    <div id="generated-results"></div>
+
+    <!-- 💬 Chatbot gomb -->
+    <div id="chatbot-toggle" onclick="toggleChatbot()">💬</div>
+
+    <!-- 💬 Chatbot ablak -->
+    <div id="chatbot-window" style="display:none;" class="chatbot-popup">
+        <div id="chatbot-messages" class="chatbox"></div>
+        <input type="text" id="chatbot-input" placeholder="Írj egy kérdést..." />
+        <button onclick="sendChatbotMessage()">Küldés</button>
+    </div>
 </div>
 
 <script src="script.js"></script>

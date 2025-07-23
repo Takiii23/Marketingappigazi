@@ -1,127 +1,159 @@
-async function generateText() {
-    const prompt = document.getElementById("prompt").value;
-    if (!prompt) return alert("Adj meg egy témát!");
+// 📄 script.js – Frissítve: platform eltávolítva a preferenciák mentésből
 
-    document.getElementById("results").innerHTML = "<p>📶 Generálás folyamatban...</p>";
-
-    try {
-        const response = await fetch("/generate-text", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt })
-        });
-
-        const data = await response.json();
-        if (!data.results) throw new Error("Nem sikerült a generálás!");
-
-        document.getElementById("results").innerHTML = data.results
-            .map(res => `<b>${res.type}</b><br>${res.text}<br>
-            <button onclick="saveText('${res.text.replace(/'/g, "\\'")}')">💾 Mentés</button><br><br>`)
-            .join("");
-
-    } catch (error) {
-        console.error("Generálási hiba:", error);
-        document.getElementById("results").innerHTML = "<p>❌ Hiba történt a generálás során!</p>";
-    }
-}
-
-async function sendMessage() {
-    const message = document.getElementById("chat-input").value;
-    if (!message) return;
-
-    try {
-        const response = await fetch("/chatbot", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message })
-        });
-
-        const data = await response.json();
-        document.getElementById("chat-history").innerHTML += `<p><b>Bot:</b> ${data.text}</p>`;
-        document.getElementById("chat-input").value = "";
-
-    } catch (error) {
-        console.error("Chatbot hiba:", error);
-        document.getElementById("chat-history").innerHTML += "<p>❌ Hiba történt!</p>";
-    }
-}
-
-async function saveText(text) {
-    try {
-        await fetch("/save-text", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text })
-        });
-        alert("✅ Szöveg mentve!");
-    } catch (error) {
-        console.error("Mentési hiba:", error);
-        alert("❌ Hiba történt a mentés során!");
-    }
-}
-
-async function toggleSaved() {
-    const savedPopup = document.getElementById("saved-popup");
-    savedPopup.classList.toggle("hidden");
-
-    try {
-        const response = await fetch("/saved-texts");
-        const texts = await response.json();
-        document.getElementById("saved-list").innerHTML = texts.map(txt => `<p>${txt}</p>`).join("");
-    } catch (error) {
-        console.error("Mentett szövegek hiba:", error);
-        document.getElementById("saved-list").innerHTML = "<p>❌ Nem sikerült betölteni!</p>";
-    }
-}
-
-function toggleChat() {
-    document.getElementById("chat-popup").classList.toggle("hidden");
-}
-
+// 🔐 Bejelentkezés
 async function login() {
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
 
-    try {
-        const response = await fetch("/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        });
+    const response = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+    });
 
-        const data = await response.json();
-        if (data.success) {
-            window.location.href = "app.html";
-        } else {
-            alert("❌ Sikertelen bejelentkezés!");
-        }
-
-    } catch (error) {
-        console.error("Bejelentkezési hiba:", error);
-        alert("❌ Hiba történt a bejelentkezés során!");
+    const result = await response.json();
+    if (result.success) {
+        window.location.href = "/app.html";
+    } else {
+        alert("❌ Hibás bejelentkezés!");
     }
 }
 
+// 📝 Regisztráció
 async function register() {
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
 
-    try {
-        const response = await fetch("/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        });
+    const response = await fetch("/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+    });
 
-        const data = await response.json();
-        alert(data.message);
-    } catch (error) {
-        console.error("Regisztrációs hiba:", error);
-        alert("❌ Hiba történt a regisztráció során!");
+    const result = await response.json();
+    if (result.success) {
+        window.location.href = "/preferences.html";
+    } else {
+        alert("❌ Hiba regisztráció közben!");
     }
 }
 
-// ✅ Külön függvényként kell lennie
-function goBack() {
-    window.history.back();
+// 💾 Preferenciák mentése (csak témakör)
+async function savePreferences() {
+    const select = document.getElementById("marketing_field");
+    const selectedFields = Array.from(select.selectedOptions).map(opt => opt.value);
+    if (selectedFields.length === 0) return alert("Válassz ki legalább egy témát!");
+
+    const response = await fetch("/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marketing_field: selectedFields })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+        window.location.href = "/app.html";
+    } else {
+        alert("❌ Preferencia mentés hiba!");
+    }
+}
+
+// 📩 Platform mentés (opcionális funkcióként megmarad, de nem használjuk itt)
+async function savePlatform() {
+    const select = document.getElementById("platform");
+    if (!select) return;
+    const selectedPlatforms = Array.from(select.selectedOptions).map(opt => opt.value);
+
+    const response = await fetch("/platform", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform: selectedPlatforms })
+    });
+
+    const result = await response.json();
+    if (!result.success) alert("❌ Platform mentési hiba!");
+}
+
+// ✨ Szöveg generálás (meghatározható platform)
+async function generateText() {
+    const prompt = document.getElementById("prompt").value;
+    const customStyle = document.getElementById("custom-style")?.value || "";
+    const postDate = document.getElementById("post-date")?.value || "";
+    const platformSelect = document.getElementById("platform");
+    const platform = Array.from(platformSelect.selectedOptions).map(opt => opt.value);
+
+    if (!prompt) return alert("Adj meg egy témát!");
+
+    const response = await fetch("/generate-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, customStyle, postDate, platform })
+    });
+
+    const result = await response.json();
+    const container = document.getElementById("generated-results");
+    container.innerHTML = "";
+
+    if (result.success) {
+        result.results.forEach(r => {
+            const div = document.createElement("div");
+            div.className = "result-block";
+            div.innerHTML = `<h4>${r.type}</h4><p>${r.text}</p>`;
+            container.appendChild(div);
+        });
+    } else {
+        alert("❌ Generálási hiba történt!");
+    }
+}
+
+// 📥 Szöveg mentése
+async function saveText() {
+    const text = prompt("Add meg a szöveget, amit menteni szeretnél:");
+    if (!text) return;
+
+    const response = await fetch("/save-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+        alert("✅ Szöveg mentve!");
+    } else {
+        alert("❌ Mentési hiba történt!");
+    }
+}
+
+// 🚪 Kijelentkezés
+async function logout() {
+    await fetch("/logout");
+    window.location.href = "/";
+}
+
+// 💬 Chatbot üzenetküldés
+async function sendChatbotMessage() {
+    const input = document.getElementById("chatbot-input");
+    const message = input.value;
+    if (!message) return;
+
+    const msgBox = document.getElementById("chatbot-messages");
+    msgBox.innerHTML += `<div class='message user'>${message}</div>`;
+    input.value = "";
+
+    const res = await fetch("/chatbot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+    });
+    const data = await res.json();
+
+    msgBox.innerHTML += `<div class='message bot'>${data.reply}</div>`;
+    msgBox.scrollTop = msgBox.scrollHeight;
+}
+
+// 💬 Emoji gomb – Chatbot ablak nyitása/zárása
+function toggleChatbot() {
+    const win = document.getElementById("chatbot-window");
+    win.style.display = win.style.display === "none" ? "block" : "none";
 }

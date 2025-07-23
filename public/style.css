@@ -1,107 +1,115 @@
-/* Alap stílusok */
+/* 🌑 Sötét téma stílus */
 body {
-    background-color: #121212;
-    color: white;
     font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column; /* Függőleges igazítás */
-    align-items: center;
-    justify-content: flex-start; /* A tartalom ne legyen levágva */
-    min-height: 100vh;
-    margin: 0;
-    padding-top: 20px; /* Extra hely a tetején */
-}
-
-/* Konténer beállítások */
-.container {
     background-color: #1e1e1e;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    text-align: center;
-    width: 350px;
-    margin-top: 20px; /* Extra hely a tetején, ha kell */
+    color: #f1f1f1;
+    margin: 0;
+    padding: 0;
 }
 
-/* Bemeneti mezők középre igazítása */
-input {
-    width: 90%;
-    padding: 10px;
-    margin: 10px 0;
-    border: none;
-    border-radius: 5px;
-    background-color: #2e2e2e;
-    color: white;
-    text-align: center;
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
 }
 
-/* Gombok stílusa */
-button {
+input, select, button, textarea {
+    display: block;
     width: 100%;
-    padding: 12px;
-    margin-top: 10px;
-    background-color: #2e7d32;
+    margin: 1rem 0;
+    padding: 0.5rem;
+    border-radius: 6px;
+    background-color: #2a2a2a;
+    color: #f1f1f1;
+    border: 1px solid #444;
+    font-size: 1rem;
+}
+
+button {
+    background-color: #4CAF50;
     color: white;
     border: none;
     cursor: pointer;
-    font-size: 16px;
-    border-radius: 5px;
-    transition: 0.3s;
+    transition: background 0.3s ease;
 }
 
 button:hover {
-    background-color: #1b5e20;
+    background-color: #388e3c;
 }
 
-/* Vissza gomb */
-.back-button {
-    background-color: #757575;
-    color: white;
-    margin-top: 15px;
+.result-block {
+    background: #2a2a2a;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    box-shadow: 0 0 6px rgba(255,255,255,0.05);
 }
 
-.back-button:hover {
-    background-color: #616161;
+/* 💬 Chatbot popup ablak */
+#chatbot-window {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 300px;
+    max-height: 400px;
+    background: #121212;
+    border: 1px solid #444;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(255,255,255,0.1);
+    padding: 1rem;
+    z-index: 1000;
+    overflow-y: auto;
+    color: #f1f1f1;
 }
 
-/* Chatbot ikon */
-.chatbot-icon {
+#chatbot-messages {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 0.5rem;
+}
+
+.message {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    border-radius: 6px;
+}
+
+.message.user {
+    background: #3a3d3f;
+    text-align: right;
+}
+
+.message.bot {
+    background: #444;
+    text-align: left;
+}
+
+/* 💬 Emoji gomb jobb alul */
+#chatbot-toggle {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background-color: #388e3c;
+    background: #4CAF50;
     color: white;
-    padding: 15px;
+    font-size: 24px;
+    padding: 10px 14px;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 20px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    z-index: 1001;
 }
 
-.chatbot-icon:hover {
-    background-color: #2e7d32;
+/* 💡 Részletező (időzítés) */
+details {
+    margin: 1rem 0;
+    padding: 0.5rem;
+    border: 1px dashed #666;
+    border-radius: 6px;
+    background: #2a2a2a;
 }
 
-/* Popup ablak */
-.popup {
-    position: fixed;
-    bottom: 100px;
-    right: 20px;
-    background-color: #1e1e1e;
-    padding: 15px;
-    border-radius: 12px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
-    width: 300px;
-}
-
-/* Eredmények rész tetejének javítása */
-#results {
-    margin-top: 20px; /* Extra hely, hogy ne vágja le a tetejét */
-    padding-top: 20px;
-    width: 100%;
-}
-
-/* Elrejtett elemek */
-.hidden {
-    display: none;
+details summary {
+    font-weight: bold;
+    cursor: pointer;
+    color: #f1f1f1;
 }
